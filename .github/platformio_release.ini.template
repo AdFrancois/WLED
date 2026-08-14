@@ -36,6 +36,8 @@ default_envs = nodemcuv2
                esp32s3dev_8MB_opi
                esp32s3dev_8MB_qspi
                esp32s3dev_8MB_none
+               esp32s3_4M_none
+               esp32s3_4M_opi
                esp32s3_4M_qspi
                ; HUB75 release-only envs
                esp32dev_hub75
