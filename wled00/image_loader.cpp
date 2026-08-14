@@ -53,7 +53,9 @@ static int lastCoordinate; // last coordinate (x+y) that was set, used to reduce
 static uint16_t perPixelX, perPixelY; // scaling factors when upscaling
 
 void screenClearCallback(void) {
-  activeSeg->fill(0);
+  if (activeSeg) { //makes it crash resistant.
+    activeSeg->fill(0);
+  }
 }
 
 // this callback runs when the decoder has finished painting all pixels
@@ -85,18 +87,41 @@ void drawPixelCallback1D(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8
   }
 }
 
+// void drawPixelCallback2D(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t blue) {
+//   // simple nearest-neighbor scaling
+//   int outY = (int)y * activeSeg->vHeight() / gifHeight;
+//   int outX = (int)x * activeSeg->vWidth()  / gifWidth;
+//   // Pack coordinates uniquely: outY into upper 16 bits, outX into lower 16 bits
+//   if (((outY << 16) | outX) == lastCoordinate) return; // skip setting same coordinate again
+//   lastCoordinate = (outY << 16) | outX; // since input is a "scanline" this is sufficient to identify a "unique" coordinate
+//   // set multiple pixels if upscaling
+//   for (int i = 0; i < perPixelX; i++) {
+//     for (int j = 0; j < perPixelY; j++) {
+//       activeSeg->setPixelColorXY(outX + i, outY + j, red, green, blue);
+//     }
+//   }
+// }
+
+// routine adapted to have animated gifs move from right to left on a matrix board. The matrix I use is mounted on a hat, and in this way the animated gif will go round the hat.
 void drawPixelCallback2D(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t blue) {
-  // simple nearest-neighbor scaling
-  int outY = (int)y * activeSeg->vHeight() / gifHeight;
-  int outX = (int)x * activeSeg->vWidth()  / gifWidth;
-  // Pack coordinates uniquely: outY into upper 16 bits, outX into lower 16 bits
-  if (((outY << 16) | outX) == lastCoordinate) return; // skip setting same coordinate again
-  lastCoordinate = (outY << 16) | outX; // since input is a "scanline" this is sufficient to identify a "unique" coordinate
-  // set multiple pixels if upscaling
-  for (int i = 0; i < perPixelX; i++) {
-    for (int j = 0; j < perPixelY; j++) {
-      activeSeg->setPixelColorXY(outX + i, outY + j, red, green, blue);
-    }
+  if (!activeSeg) return;
+
+  // 1. Haal de afmetingen op van de LED matrix en de GIF
+  int16_t matrixWidth = activeSeg->vWidth();   // bijv. 64
+  int16_t totalTravel = matrixWidth + gifWidth; // Totale scroll-afstand (64 + GIF breedte)
+
+  // 2. Bereken de dynamische X-verschuiving op basis van de tijd en de Speed-slider
+  // (activeSeg->speed is de waarde van de Speed-slider in de UI)
+  uint32_t progress = (millis() * (activeSeg->speed + 1)) >> 6;
+  int16_t offsetX   = (matrixWidth - 1) - (progress % totalTravel);
+
+  // 3. Bereken de werkelijke X-positie op de matrix
+  int16_t screenX = x + offsetX;
+
+  // 4. Teken de pixel ALLEEN als hij daadwerkelijk binnen het 64x16 scherm valt
+  if (screenX >= 0 && screenX < matrixWidth && y < activeSeg->vHeight()) {
+    uint32_t col = RGBW32(red, green, blue, 0);
+    activeSeg->setPixelColorXY(screenX, y, col);
   }
 }
 
